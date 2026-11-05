@@ -1,10 +1,10 @@
 # HMM Regime-Switching ETF Portfolio Optimizer
 
-A research-grade Python framework that builds a **long-only, sector-constrained ETF portfolio** by combining
-
-1. a **Hidden Markov Model (HMM)** that detects market regimes (Bull / Sideways / Bear),
-2. a **regime-conditional estimation pipeline** for expected returns and covariances (Ledoit–Wolf → Marchenko–Pastur denoising → James–Stein shrinkage),
-3. a **Joint Stochastic Programming (JSP)** optimizer that simulates thousands of future regime paths from today's regime distribution and optimizes the portfolio *across* those paths.
+ETF portfolio optimization model based on a **Hidden Markov Model (HMM)** for *market-regime detection*. For each identified
+regime (*Bull, Bear, Sideways*) a separate (μ, Σ) pair is estimated. After, there is some denoising techniques through **regime-conditional estimation pipeline** for expected returns and covariances (*Ledoit-Wolf → Marchenko-Pastur denoising → James-Stein shrinkage*). 
+The portfolio is then optimized either by **Joint Stochastic Programming (JSP)** over simulated regime paths, or as 
+a probability-weighted average of per-regime portfolios (weighting scheme configurable by the user).
+It is a research-grade Python framework that builds a **long-only, sector-constrained ETF portfolio**.
 
 A classical alternative (one mean-variance portfolio per regime, blended by regime probabilities) is also included for comparison.
 
