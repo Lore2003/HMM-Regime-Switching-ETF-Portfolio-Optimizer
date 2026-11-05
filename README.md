@@ -2,6 +2,7 @@
 
 ETF portfolio optimization model based on a **Hidden Markov Model (HMM)** for *market-regime detection*. For each identified
 regime (*Bull, Bear, Sideways*) a separate (μ, Σ) pair is estimated. After, there is some denoising techniques through **regime-conditional estimation pipeline** for expected returns and covariances (*Ledoit-Wolf → Marchenko-Pastur denoising → James-Stein shrinkage*). 
+
 The portfolio is then optimized either by **Joint Stochastic Programming (JSP)** over simulated regime paths, or as 
 a probability-weighted average of per-regime portfolios (weighting scheme configurable by the user).
 It is a research-grade Python framework that builds a **long-only, sector-constrained ETF portfolio**.
