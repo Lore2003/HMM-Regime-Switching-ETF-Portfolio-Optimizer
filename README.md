@@ -9,7 +9,7 @@ It is a research-grade Python framework that builds a **long-only, sector-constr
 
 A classical alternative (one mean-variance portfolio per regime, blended by regime probabilities) is also included for comparison.
 
-> **Disclaimer.** This project is for research and educational purposes only. It is not investment advice. Outputs depend heavily on the input data, the configured priors and the model assumptions listed in [Known limitations](#known-limitations).
+> **Disclaimer.** This project is for research and educational purposes only. It is not investment advice. Outputs depend heavily on the input data.
 
 ---
 
@@ -31,8 +31,6 @@ A classical alternative (one mean-variance portfolio per regime, blended by regi
 - [Outputs](#outputs)
 - [Example results and how to read them](#example-results-and-how-to-read-them)
 - [Validation and diagnostics](#validation-and-diagnostics)
-- [Known limitations](#known-limitations)
-- [Ideas for future work](#ideas-for-future-work)
 - [References](#references)
 - [License](#license)
 
@@ -353,23 +351,6 @@ The console report ends with two readings of the same portfolio. Fill in the tab
 - **Posterior/Viterbi agreement:** printed after every fit.
 - **Walk-forward proxy** (`run_walkforward`): rolling or expanding windows with an embargo (`oos_gap_days`) between training and test, explicit transaction costs, and metrics (annualized return and volatility, Sharpe, Sortino, maximum drawdown, Calmar, VaR/CVaR) compared with the benchmark. See the limitation below: it does not re-fit the HMM or the JSP.
 
----
-
-## Known limitations
-
-Being explicit about what the model does **not** do is part of using it responsibly.
-
-1. **Short ETF histories.** The ETF sample is the *intersection* of all ETF histories, so the youngest ETF sets the length. Regime-conditional estimates then rest on a few dozen to a few hundred days and rely on shrinkage and priors; **the sector priors are subjective inputs that materially affect the result**.
-2. **JSP objective and Monte-Carlo noise.** For `jsp` (max average Sharpe), the objective depends on the simulated paths only through their *average* regime occupation, so the extra paths mostly add sampling noise. The VaR/CVaR objectives do use path dispersion. A per-path Sharpe objective would exploit scenario dispersion more fully.
-3. **Walk-forward is a proxy.** Each window re-estimates a James–Stein max-Sharpe portfolio; the HMM regimes and the JSP are not re-fitted per window, so the backtest does not validate the full model.
-4. **In-sample regime history.** The HMM is trained on the whole benchmark history; historical regime labels and regime-conditional estimates are therefore in-sample. The posterior for the last observation is equivalent to the filtered probability, so *today's* regime reading uses no future data, but historical plots do.
-5. **Regime-mixture variance.** Reported volatility averages regime covariances and ignores the variance contributed by differences in regime means (law of total variance), which makes it slightly optimistic.
-6. **Momentum overlaps with sample means.** Past returns already enter the regime sample means, especially with short histories; the momentum tilt can partly double-count that signal.
-7. **Distributional assumptions.** Gaussian emissions in the HMM, Gaussian VaR/CVaR in the objectives, and i.i.d. returns within a regime.
-8. **Mixed quote currencies.** Tickers listed in London (`.L`) can be quoted in GBP, GBX or USD and are mixed with euro-listed ETFs. Returns are not converted to a common currency, so FX moves end up inside returns and correlations; `validate_config()` warns about this.
-9. **Fixed modelling constants**, e.g. the Sharpe ceiling of 1.8 and the 20% absolute cap used to clip μ, and the 15-observation minimum per regime.
-10. **Constraint-driven solutions.** With tight per-sector bounds the optimum often sits on those bounds, so sector limits and sector priors matter at least as much as the estimated regime parameters.
-11. **Data quality.** Yahoo Finance tickers can change or disappear; always verify tickers before running.
 
 ---
 
