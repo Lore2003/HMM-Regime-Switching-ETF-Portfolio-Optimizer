@@ -16,7 +16,6 @@ A classical alternative (one mean-variance portfolio per regime, blended by regi
 ## Table of contents
 
 - [Why regime-aware optimization?](#why-regime-aware-optimization)
-- [Design highlights](#design-highlights)
 - [Pipeline overview](#pipeline-overview)
 - [Methodology](#methodology)
   - [1. Data](#1-data)
@@ -24,6 +23,7 @@ A classical alternative (one mean-variance portfolio per regime, blended by regi
   - [3. Regime-conditional estimation of μ and Σ](#3-regime-conditional-estimation-of-μ-and-σ)
   - [4. Optimization](#4-optimization)
   - [5. Reported metrics](#5-reported-metrics)
+- [Explanation of the Structure and Principles of the Project](#Explanation-of-the-Structure-and-Principles-of-the-Project)
 - [Code structure](#code-structure)
 - [Installation](#installation)
 - [Quick start](#quick-start)
@@ -48,21 +48,7 @@ This project models that structure explicitly:
 
 ---
 
-## Explanation of the Structure and Principles of the Project 
 
-| Component | What it does | Why it matters |
-|---|---|---|
-| **HMM ensemble with state alignment** | Trains several HMMs (different seeds), aligns their hidden states to the best model with Hungarian matching on emission parameters, and averages their posteriors with likelihood-based weights. | Avoids *label switching* between ensemble members; posteriors stay consistent with the transition matrix and regime labels. |
-| **Posterior probability floor** | Clips each regime probability to a minimum (default 3%). | Prevents degenerate "100% one regime" inputs to the simulator. |
-| **Economic regime mapping** | Maps unlabeled HMM states to Bull / Sideways / Bear using a composite score of mean return, volatility, time share and drawdown. | Makes results interpretable and stable across re-fits. |
-| **Three-layer covariance estimation** | Ledoit–Wolf shrinkage of the *correlation* matrix (each asset keeps its own variance) → Marchenko–Pastur eigenvalue denoising → blended back with Ledoit–Wolf. | Short per-regime samples (tens to hundreds of days) with many assets produce very noisy sample covariances. |
-| **Sample-length-adaptive James–Stein shrinkage of μ** | Shrinks each regime's mean toward forward-looking sector priors; the intensity depends on series length, regime sample size and number of assets. | Sample means from 1–3 years of data are dominated by noise; shrinkage keeps expected returns economically plausible. |
-| **Forward-looking JSP** | Simulates Markov regime paths starting from today's *smoothed probability vector* (not a hard label) and optimizes across paths. | The portfolio reflects both the current regime and the long-run regime mix implied by the transition matrix. |
-| **Nested cross-validation on simulated paths** | Multi-start solutions are fitted on 70% of the paths and selected on the held-out 30%. | Reduces selection bias among local optima. |
-| **Sector constraints with feasibility checks** | Per-sector min/max bounds, a post-optimization projection, and a `validate_config()` pre-flight check. | Enforces structural diversification and catches silent configuration errors (e.g. a sector name typo). |
-| **Transaction-cost and turnover awareness** | Optional L1 cost (bps) and L2 turnover penalty relative to previous weights. | Supports periodic re-optimization without excessive trading. |
-
----
 
 ## Pipeline overview
 
@@ -193,6 +179,22 @@ The console report shows two readings:
 - **Reporter view:** the same weights evaluated with μ and Σ averaged using the **smoothed current regime distribution** (including the momentum tilt). It is a contextual cross-check; a large gap between the two means that today's regime differs from the long-run mix.
 
 It also prints the naive trailing-12-month return of the final weights next to the benchmark, explicitly flagged as **in-sample** (look-ahead).
+
+---
+
+## Explanation of the Structure and Principles of the Project 
+
+| Component | What it does | Why it matters |
+|---|---|---|
+| **HMM ensemble with state alignment** | Trains several HMMs (different seeds), aligns their hidden states to the best model with Hungarian matching on emission parameters, and averages their posteriors with likelihood-based weights. | Avoids *label switching* between ensemble members; posteriors stay consistent with the transition matrix and regime labels. |
+| **Posterior probability floor** | Clips each regime probability to a minimum (default 3%). | Prevents degenerate "100% one regime" inputs to the simulator. |
+| **Economic regime mapping** | Maps unlabeled HMM states to Bull / Sideways / Bear using a composite score of mean return, volatility, time share and drawdown. | Makes results interpretable and stable across re-fits. |
+| **Three-layer covariance estimation** | Ledoit–Wolf shrinkage of the *correlation* matrix (each asset keeps its own variance) → Marchenko–Pastur eigenvalue denoising → blended back with Ledoit–Wolf. | Short per-regime samples (tens to hundreds of days) with many assets produce very noisy sample covariances. |
+| **Sample-length-adaptive James–Stein shrinkage of μ** | Shrinks each regime's mean toward forward-looking sector priors; the intensity depends on series length, regime sample size and number of assets. | Sample means from 1–3 years of data are dominated by noise; shrinkage keeps expected returns economically plausible. |
+| **Forward-looking JSP** | Simulates Markov regime paths starting from today's *smoothed probability vector* (not a hard label) and optimizes across paths. | The portfolio reflects both the current regime and the long-run regime mix implied by the transition matrix. |
+| **Nested cross-validation on simulated paths** | Multi-start solutions are fitted on 70% of the paths and selected on the held-out 30%. | Reduces selection bias among local optima. |
+| **Sector constraints with feasibility checks** | Per-sector min/max bounds, a post-optimization projection, and a `validate_config()` pre-flight check. | Enforces structural diversification and catches silent configuration errors (e.g. a sector name typo). |
+| **Transaction-cost and turnover awareness** | Optional L1 cost (bps) and L2 turnover penalty relative to previous weights. | Supports periodic re-optimization without excessive trading. |
 
 ---
 
