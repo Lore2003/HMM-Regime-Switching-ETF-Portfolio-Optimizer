@@ -48,7 +48,7 @@ This project models that structure explicitly:
 
 ---
 
-## Design highlights
+## Explanation of the Structure and Principles of the Project 
 
 | Component | What it does | Why it matters |
 |---|---|---|
