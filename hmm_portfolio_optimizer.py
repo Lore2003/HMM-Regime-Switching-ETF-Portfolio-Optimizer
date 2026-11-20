@@ -3,13 +3,9 @@ HMM REGIME-SWITCHING PORTFOLIO OPTIMIZER (ETF)
 
 DESCRIPTION:
     ETF portfolio optimization model based on a Hidden Markov Model (HMM) for
-    market-regime detection. For each identified regime (Bull, Bear, Sideways)
-    a separate (μ, Σ) pair is estimated. After, there is some denoising techniques through
-    regime-conditional estimation pipeline for expected returns and covariances 
-    (Ledoit-Wolf → Marchenko-Pastur denoising → James-Stein shrinkage). The
-    portfolio is then optimized either by Joint Stochastic Programming (JSP) 
+    market-regime detection, then optimized either by Joint Stochastic Programming (JSP) 
     over simulated regime paths, or as a probability-weighted average of 
-    per-regime portfolios (weighting scheme configurable by the user).
+    per-regime portfolios.
 
 REQUIREMENTS:
     pip install numpy pandas scipy scikit-learn hmmlearn matplotlib
@@ -140,12 +136,7 @@ def _ledoit_wolf_cov(data: np.ndarray, preserve_variances: bool = True):
     """
     Ledoit-Wolf covariance; returns (cov, shrinkage intensity).
 
-    The Ledoit-Wolf denoising shrinks toward mu*I (mu = average variance), which pulls EVERY
-    VARIANCE toward the cross-sectional mean: with an intensity of 3% no asset can end up below
-    sqrt(0.03) x the average volatility (~2.6% for a 15%-vol universe). Cash-like ETFs and
-    short-duration ETFs get their risk overstated by 10-80x. To resolve this issue we use 
-    "preserve_variances=True": the returns are standardised first, LW shrinks the CORRELATION matrix, 
-    and the individual variances are restored afterwards (the diagonal stays exactly the sample variance).
+    
     
     """
     data = np.asarray(data, dtype=float)
@@ -186,10 +177,7 @@ def _slsqp_constraints(ticker_names, sector_map, sector_constraints):
 
 def _js_base_intensity(n_obs: int, n_assets: int) -> Tuple[float, str, bool]:
     """
-    Base James-Stein intensity C: stronger shrinkage for short histories and many assets.
-    It means that C is higher when ETF time series are shorter: less history, less trust,
-    more converging on sectors' priors. 
-    Returns (C, description of the history tier, whether the N-aware floor was binding).
+    
     """
     if n_obs < 260:
         c, tier = 80.0, "Short ETF series (~1 year)"
@@ -258,10 +246,7 @@ class DataLoader:
 
     @staticmethod
     def _extract_close(raw: pd.DataFrame, tickers: List[str]) -> pd.DataFrame:
-        """Close-price frame whose columns are labelled by the downloaded ticker.
-        yfinance returns columns in alphabetical order, so labels must come from
-        the download itself and NEVER be re-assigned positionally.
-        """
+        
         if isinstance(raw.columns, pd.MultiIndex):
             return raw['Close']
         if len(tickers) == 1:
@@ -611,12 +596,7 @@ class MarketRegimeHMM:
         weights_ll = np.exp(ll_shifted)
         weights_ll /= weights_ll.sum()
 
-        # The ensemble members should all be aligned with the state labelling 
-        # of the BEST model (using Hungarian matching based on the emission parameters). 
-        # Consequently, the column designated k in regime_probs always refers to 
-        # the same raw state k that is used by transmat_, regime_sequence and
-        #  regime_mapping. (In the past, the columns were arranged according to
-        #  mean return, whereas this does not match the raw state ids.)
+        
         ref_sig = self._state_signature(self.model)
         aligned_probs = []
         for m, probs in zip(ensemble_models, ensemble_probs):
@@ -3129,12 +3109,8 @@ class WalkForwardValidator:
 
 CONFIG = {
 
-   # ────────────────────────────────── ───────────────────────────────────
+  
     # ENTER YOUR ETFs HERE (Yahoo Finance tickers or Excel names)
-    # NOTE: the FIRST ticker is used as the benchmark for the HMM
-    # (ideally a broad equity ETF such as MSCI World).
-    # WARNING: verify every ticker on Yahoo Finance before running. Tickers can change or be
-    # delisted (check e.g. STN.PA), and a ticker with no data is silently excluded.
     # ─────────────────────────────────────────────────────────────────────
     "etf_tickers": [
         # BASE — MSCI World (benchmark, ~2009)
@@ -3176,8 +3152,7 @@ CONFIG = {
         "CPXJ.L",       # iShares MSCI Pacific ex Japan   [IE00B52MJY50, ~2011]
     ],
     # ─────────────────────────────────────────────────────────────────────
-    # SECTOR MAP — used for constraints and reporting
-    # Modify based on your actual ETFs
+    # SECTOR MAP 
     # ─────────────────────────────────────────────────────────────────────
     "sector_map": {
         "IWDA.AS":  "MSCI World",
@@ -3254,18 +3229,10 @@ CONFIG = {
     "momentum_window_short":  21,
 
     # LEVER 2 — RETURN TILT on the MVO objective
-    # Shifts the optimization from pure Sharpe toward higher return.
-    # 0.0 = pure max Sharpe (default) | 0.20 = recommended | 1.0 = pure max return
-    # 0.0  = pure max Sharpe (risk/return efficient but does not maximize absolute return)
-    # 0.20 = recommended: 80% Sharpe + 20% pure return. Adds ~+1-3% return.
-    # 0.40 = moderately aggressive: more return, slightly lower Sharpe.
-    # 1.0  = pure max return (completely ignores risk — not recommended)
     # IMPORTANT: to activate return_tilt, objective_mode MUST be "blended".
     "return_tilt":          0.0,   # Valid range: [0.0, 1.0].
 
     # LEVER 3 — VOLATILITY TARGET (alternative to return_tilt)
-    # Maximizes return with an explicit volatility constraint.
-    # None = disabled | 0.13 = 13% vol target | 0.15 = 15% vol target
     # Use EITHER return_tilt OR vol_target, not both together.
     # EXPECTED EFFECT: maximum return compatible with the vol target
     "vol_target":           None,
@@ -3282,15 +3249,6 @@ CONFIG = {
 
 
     # Sector constraints: {sector_name: (min_weight, max_weight)}
-    # FEEL FREE TO MODIFY based on your strategy
-    # NOTE: sector names must match EXACTLY
-    # the values in the sector_map above (including capitalization and spaces).
-    # ─────────────────────────────────────────────────────────────────────
-    # SECTOR CONSTRAINTS — per-sector constraints (min%, max%)
-    # Advantages of constraints: enforce structural diversification, reduce concentration.
-    # Drawback: may slightly lower the optimized Sharpe.
-    # To test without constraints: set all to (0.00, 1.00) or comment out the dict.
-    # NOTE: names must match the values in sector_map EXACTLY.
     # ─────────────────────────────────────────────────────────────────────
     "sector_constraints": {
         "MSCI World":        (0.10, 0.25),  # still global but not dominant
@@ -3323,9 +3281,7 @@ CONFIG = {
 
     # ── JSP PARAMETERS ───────────────────────────────────────────────────
     "jsp_n_sequences":  1500,   # simulated trajectories (500-2000; 1000 optimal)
-    "jsp_seq_length":   756,    # simulation horizon in trading days (756 ≈ 3 years, 1260 ≈ 5 years).
-                                # A longer horizon lets the Markov chain converge toward the long-run
-                                # regime mix, so today's regime matters less for the final weights.
+    "jsp_seq_length":   756,    # simulation horizon in trading days
     "var_confidence":   0.05,   # VaR confidence level for jsp_var (default 5%)
     "cvar_alpha":       0.05,   # CVaR tail level (used in jsp_cvar)
 
@@ -3334,19 +3290,13 @@ CONFIG = {
     #
     # "today_probs"  RECOMMENDED for 4-5 year investors.
     #                Uses TODAY's probability distribution (full vector,
-    #                NOT argmax). With seq_length=1260 the simulation starts from the
-    #                current regime and gradually converges to the long-run mix.
-    #                DYNAMIC (varies with the market) and BALANCED (5 years).
-    #                Example 20/03 (Sideways 90%): projects 5 years → ~37% Sideways.
-    #                Example 16/03 (Bull 90%):     projects 5 years → ~49% Bull.
-    #                The difference is realistic and not excessive.
+    #                NOT argmax). 
     #
     # "blended"      Compromise: mix of today and the stationary distribution π.
     #                start = (1-α)*today + α*π  with α=stationary_blend_alpha.
     #                Useful if you want to further reduce sensitivity.
     #
     # "current"      ONLY for tactical paper trading (horizon of weeks).
-    #                Uses the argmax of the current regime smoothed over K days.
     #                Very sensitive portfolio: NOT suitable for 4-5 years.
 
     "regime_start_mode":      "today_probs",  # "today_probs" | "blended" | "current"
@@ -3356,10 +3306,7 @@ CONFIG = {
     # ── ERC BLEND (structural diversification) ─────────────────────────
     # Applies Equal Risk Contribution as a post-MVO/JSP diversification constraint.
     # 0.0 = pure MVO/JSP | 0.05 = light | 0.20 = strong (not recommended with 15 ETFs)
-    # With 15 ETFs of similar risk (after LW+MP shrinkage), ERC converges
-    # almost to equally-weighted → a 20% blend is equivalent to +20% weight on the EW solution.
-    # With JS_C=20 (main fix) the MVO weights already differentiate well.
-    # 0.05 keeps a slight diversification benefit without distorting.
+
     "erc_blend":        0.0,  
 
     # ─────────────────────────────────────────────────────────────────────
@@ -3367,25 +3314,20 @@ CONFIG = {
     # ─────────────────────────────────────────────────────────────────────
 
     # TECHNIQUE 1 — Marchenko-Pastur denoising (post Ledoit-Wolf)
-    # Ledoit-Wolf target. True (recommended): shrink the CORRELATION matrix and keep every asset's own
-    # variance. False: legacy scikit-learn behaviour (shrinks toward mu*I), which inflates the risk of
-    # low-volatility assets such as money-market or short-duration bond ETFs.
+    
     "lw_preserve_variances": True,
     
     # Convention of the expected returns fed to the optimizer.
-    # "arithmetic" (recommended): regime means are averages of SIMPLE returns, consistent with the
+    # "arithmetic" : regime means are averages of SIMPLE returns, consistent with the
     #   arithmetic sector priors and with the mean-variance framework.
     # "log": legacy behaviour (means of log returns, about sigma^2/2 per year lower).
     "mu_convention": "arithmetic",
     
     # Removes noise eigenvalues from the covariance matrix.
-    # Applied intra-regime (mitigates the i.i.d. problem) with adaptive blending.
     # True = active | False = use Ledoit-Wolf only
     "use_mp_denoising":     True,
 
     # TECHNIQUE 2 — Nested CV (internal 70/30 split in the JSP simulation)
-    # The 15 multi-start candidates are selected by performance on the
-    # validation set (30%), not on the training set — eliminates selection bias.
     # FIXED parameters: nested_cv_ratio=0.70 — do not optimize on the data.
     "use_nested_cv":        True,
     "nested_cv_ratio":      0.70,   # fixed split — do not touch
@@ -3401,7 +3343,7 @@ CONFIG = {
     # Applied in both the JSP and the Walk-Forward OOS.
     "transaction_cost_bps": 5.0,
     
-    # Your CURRENT portfolio as {ticker: weight} (None = start from scratch). When given, the JSP
+    # When given, the JSP
     # charges transaction_cost_bps and l2_turnover_penalty against the distance from these weights;
     # without it those two settings have no effect on the JSP.
     "current_weights": None,
@@ -3411,9 +3353,7 @@ CONFIG = {
 
     # ─────────────────────────────────────────────────────────────────────
     # PRIOR FORWARD-LOOKING PER SECTOR (James-Stein shrinkage target)
-    # Annualized expected returns by asset class.
     # Source: Damodaran (2024), AQR (2024), Research Affiliates (2024).
-    # CHANGE these values if you have DIFFERENT VIEWS on the sectors.
     # ─────────────────────────────────────────────────────────────────────
     # NOTE: Do not change the sector names they must match the values in sector_map exactly.
     # With JS_C=20 and priors compressed in [3%-10%], 
@@ -3431,10 +3371,7 @@ CONFIG = {
         "Emerging Markets":  0.09,   # More risky markets
         "Asia Pacific":      0.07,   # a particlarly equity broad
     },
-    # Optional anti-look-ahead: dated schedule of priors (as-of).
-    # The model uses ONLY the record with effective_date <= window date.
-    # Example:
-    # [{"effective_date": "2024-01-01", "priors": {...}}, ...]
+    
     "prior_schedule": None,
     "strict_prior_schedule": False,
 
